@@ -19,11 +19,16 @@ library(ggplot2)
 library(dplyr)
 library(synapseClient)
 library(edgeR)
+library(PreProcess)
 
 synapseLogin()
 
 #counts syn11305250
 #metadata syn11305353
+Neurons="#0072B2"
+Non-Neurons="#F0E442"
+ACC="#009E73"
+PFC="#CC79A7"
 
 tol21rainbow= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788")
 rich12equal = c("#000040", "#000093", "#0020E9", "#0076FF", "#00B8C2", "#04E466", "#49FB25", "#E7FD09", "#FEEA02", "#FFC200", "#FF8500", "#FF3300")
@@ -45,7 +50,6 @@ head(capstone2.metadata)
 *ChIPseq Statistics*
 ```{r}
 temp = capstone2.metadata %>% group_by(Brain_Region,Cell_Type,Mark) %>% summarise(n=n())
-temp
 ggplot(temp,aes(as.factor(Cell_Type),n,fill=Mark))+
   geom_col(position='dodge')+
   theme_bw()+
@@ -141,6 +145,12 @@ capstone2.h3k4me3.counts = fread(getFileLocation(synGet( 'syn11305250' )), heade
 rownames(capstone2.h3k4me3.counts)=capstone2.h3k4me3.counts$Geneid
 capstone2.h3k4me3.counts=capstone2.h3k4me3.counts[,-1]
 head(capstone2.h3k4me3.counts)
+D = DGEList(counts = capstone2.h3k4me3.counts) ;
+D = calcNormFactors(D);
+keep <- rowSums(cpm(capstone2.h3k4me3.counts)>1) >= 5;
+D = D[keep,];
+D = calcNormFactors(D)
+R = rpkm(D,gene.length = peaks_width, log = TRUE)
 
 #4 samples missing
 counts.reduced = capstone2.h3k4me3.counts[,names(capstone2.h3k4me3.counts) %in% capstone2.metadata$Sample_ID]
