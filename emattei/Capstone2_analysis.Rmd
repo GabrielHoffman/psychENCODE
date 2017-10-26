@@ -19,16 +19,24 @@ library(ggplot2)
 library(dplyr)
 library(synapseClient)
 library(edgeR)
-library(PreProcess)
+library(preprocessCore)
+library(wesanderson)
 
 synapseLogin()
 
 #counts syn11305250
 #metadata syn11305353
 Neurons="#0072B2"
-Non-Neurons="#F0E442"
+NonNeurons="#F0E442"
+CNON="#FF7903"
 ACC="#009E73"
 PFC="#CC79A7"
+ON="#AEAFAE"
+brainregions.col=c(ACC,PFC,ON)
+celltype.col=c(Neurons,NonNeurons,CNON)
+
+brainregions=c("Anterior\nCingular\nCortex", "Cerebellum", "Dorsolateral\nPre-Frontal\nCortex","Olfactory\nNeuroepithelium","Pre-Frontal\nCortex","Temporal\nCortex")
+marks.col=c("#00B0F0","#FFCD00","#FF0000")
 
 tol21rainbow= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788")
 rich12equal = c("#000040", "#000093", "#0020E9", "#0076FF", "#00B8C2", "#04E466", "#49FB25", "#E7FD09", "#FEEA02", "#FFC200", "#FF8500", "#FF3300")
@@ -37,7 +45,37 @@ mycols=c("dodgerblue2", "#E31A1C", "green4", "#6A3D9A", "#FF7F00", "black",
          "gray70", "khaki2", "maroon", "orchid1", "deeppink1", "blue1",
          "steelblue4", "darkturquoise", "green1", "yellow4", "yellow3",
          "darkorange4", "brown")
+
+theme.common.long.label = theme(axis.text.x = element_text(face="bold", 
+                                   size=14,
+                                   angle=45,
+                                   hjust=1,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.text.y = element_text(face="bold",
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.title.y = element_text(face="bold",
+                                    size=14),
+        legend.text = element_text(face="bold",size=12),
+        legend.title = element_blank(),
+        axis.ticks.length=unit(-0.15, "cm"))
+
+theme.common.short.label = theme(axis.text.x = element_text(face="bold", 
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.text.y = element_text(face="bold",
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.title.y = element_text(face="bold",
+                                    size=14),
+        legend.text = element_text(face="bold",size=12),
+        legend.title = element_blank(),
+        axis.ticks.length=unit(-0.15, "cm"))
+
+#png("file.png",width=1920,height=1080,res=150)
+
 ```
+
 
 Loading the Capstone2 metadata
 ```{r}
@@ -48,91 +86,152 @@ head(capstone2.metadata)
 ```
 
 *ChIPseq Statistics*
+
+Overview of the number of sampler per __Study__
 ```{r}
-temp = capstone2.metadata %>% group_by(Brain_Region,Cell_Type,Mark) %>% summarise(n=n())
-ggplot(temp,aes(as.factor(Cell_Type),n,fill=Mark))+
-  geom_col(position='dodge')+
-  theme_bw()+
-  scale_fill_manual(values = mycols)+
-  ylab("Number of samples")+
-  xlab("")+
-  ggtitle("Peaks Summary")+
-  geom_label(data=temp, aes(y=n,colour=Mark,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")+
-  facet_wrap(~Brain_Region)
 
-temp = capstone2.metadata %>% group_by(Cell_Type,Mark) %>% summarise(n=n())
-ggplot(temp,aes(as.factor(Cell_Type),n,fill=Mark))+
-  geom_col(position='dodge')+
-  theme_bw()+
-  scale_fill_manual(values = mycols)+
-  ylab("Number of samples")+
-  xlab("")+
-  ggtitle("Peaks Per Cell Type")+
-  geom_label(data=temp, aes(y=n,colour=Mark,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")
+temp = capstone2.metadata %>% group_by(Study,Mark) %>% summarise(n=n())
 
-temp = capstone2.metadata %>% group_by(Brain_Region,Mark) %>% summarise(n=n())
-ggplot(temp,aes(as.factor(Brain_Region),n,fill=Mark))+
-  geom_col(position='dodge')+
-  theme_bw()+
-  scale_fill_manual(values = mycols)+
-  ylab("Number of samples")+
-  xlab("")+
-  ggtitle("Peaks Per Brain Region")+
-  geom_label(data=temp, aes(y=n,colour=Mark,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")
-
-
-temp = capstone2.metadata %>% group_by(Study,Brain_Region,Mark) %>% summarise(n=n())
 ggplot(temp,aes(as.factor(Study),n,fill=Mark))+
   geom_col(position='dodge')+
   theme_bw()+
-  scale_fill_manual(values = mycols)+
+  scale_fill_manual(values = marks.col,legend)+
+  ggtitle("Number of Samples Per Study")+
+  geom_text(data=temp, aes(y=n,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.4,color="black")+
+  labs(y = "Number of samples",x="")+
+  theme(axis.text.x = element_text(face="bold", 
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.text.y = element_text(face="bold",
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.title.y = element_text(face="bold",
+                                    size=14),
+        legend.text = element_text(face="bold",size=12),
+        legend.title = element_blank(),
+        axis.ticks.length=unit(-0.15, "cm"))
+
+```
+
+Overview of the number of sampler per __Brain Region__
+```{r}
+temp = capstone2.metadata %>% group_by(Brain_Region,Mark) %>% summarise(n=n())
+
+ggplot(temp,aes(as.factor(Brain_Region),n,fill=Mark))+
+  geom_col(position='dodge')+
+  theme_bw()+
+  scale_fill_manual(values = marks.col)+
+  ggtitle("Number of Samples Per Brain Region")+
+  scale_x_discrete(name = "", labels=brainregions)+
+  labs(y = "Number of samples")+
+  geom_text(data=temp, aes(y=n,label = n),
+            size = 5,
+            position = position_dodge(width = 0.90),
+            vjust=-0.3,
+            colour="black")+
+  theme(axis.text.x = element_text(face="bold", 
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.text.y = element_text(face="bold",
+                                   size=14,
+                                   margin = unit(c(0.5,0.5,0.5,0.5), "cm")),
+        axis.title.y = element_text(face="bold",
+                                    size=14),
+        legend.text = element_text(face="bold",size=12),
+        legend.title = element_blank(),
+        axis.ticks.length=unit(-0.15, "cm"))
+
+```
+
+Overview of the number of sampler per __Brain Region__ and __Cell Type__
+```{r}
+temp = capstone2.metadata %>% group_by(Brain_Region,Cell_Type,Mark) %>% dplyr::summarise(n=n())
+
+ggplot(temp,aes(as.factor(Cell_Type),n,fill=Mark))+
+  geom_col(position='dodge')+
+  theme_bw()+
+  scale_fill_manual(values = marks.col)+
   ylab("Number of samples")+
   xlab("")+
-  ggtitle("Number of Samples Per Study")+
-  geom_label(data=temp, aes(y=n,colour=Mark,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")+
-  facet_wrap(~Brain_Region)
+  ggtitle("Peaks Summary")+
+  geom_text(data=temp, aes(y=n,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.4,color="black")+
+  facet_wrap(~Brain_Region)+ theme.common.long.label
+
+```
+
+Number of Sampled per __Cell Type__
+```{r}
+temp = capstone2.metadata %>% group_by(Cell_Type,Mark) %>% summarise(n=n())
+
+ggplot(temp,aes(as.factor(Cell_Type),n,fill=Mark))+
+  geom_col(position='dodge')+
+  theme_bw()+
+  scale_fill_manual(values = marks.col)+
+  ylab("Number of samples")+
+  xlab("")+
+  ggtitle("Peaks Per Cell Type")+
+  geom_text(data=temp, aes(y=n,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.4,color="black")
+
+
+temp = capstone2.metadata %>% group_by(Brain_Region,Diagnosis) %>% summarise(n=n())
+
+ggplot(temp,aes(as.factor(Brain_Region),n,fill=Diagnosis))+
+  geom_col(position='dodge')+
+  theme_bw()+
+  scale_fill_manual(values = wes_palette(n=4, name="GrandBudapest"))+
+  scale_x_discrete(name = "", labels=brainregions)+
+  labs(y = "Number of samples")+
+  ggtitle("Number of Samples Per Diagnosis")+
+  geom_text(data=temp, aes(y=n,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.4,color="black")+
+  theme.common.short.label
 
 ```
 
 *ATACseq Summary*
 ```{r}
 temp = capstone2.metadata %>% group_by(Brain_Region,has_ATACseq) %>% summarise(n=n())
+
 ggplot(temp,aes(as.factor(Brain_Region),n,fill=has_ATACseq))+
-  geom_col(position='dodge')+
+  geom_col(color=c("black"))+
   theme_bw()+
-  scale_fill_manual(values = c("darkred","darkgreen"),name="Has ATACseq")+
-  ylab("Number of samples")+
-  xlab("")+
+  scale_fill_manual(values = c("white","darkgreen"),name="Has ATACseq")+
+  scale_x_discrete(name = "", labels=brainregions)+
+  labs(y = "Number of samples")+
   ggtitle("ATACseq Statistics")+
-  geom_label(data=temp, aes(y=n,colour=has_ATACseq,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")
+  geom_label(data=temp, aes(y=n,colour=has_ATACseq,label = n), size = 5,vjust=-0.5,color="black",show.legend = FALSE)+
+  theme.common.short.label
+
 ```
 
 *RNAseq summary*
 ```{r}
 temp = capstone2.metadata %>% group_by(Brain_Region,has_RNAseq) %>% summarise(n=n())
-ggplot(temp,aes(as.factor(Brain_Region),n,fill=has_RNAseq))+
-  geom_col(position='dodge')+
-  theme_bw()+
-  scale_fill_manual(values = c("darkred","darkgreen"),name="Has RNAseq")+
-  ylab("Number of samples")+
-  xlab("")+
-  ggtitle("RNAseq Statistics")+
-  geom_label(data=temp, aes(y=n,colour=has_RNAseq,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")
 
-  
+ggplot(temp,aes(as.factor(Brain_Region),n,fill=has_RNAseq))+
+  geom_col(col="black")+
+  theme_bw()+
+  scale_fill_manual(values = c("white","darkgreen"),name="Has RNAseq")+
+  scale_x_discrete(name = "", labels=brainregions)+
+  labs(y = "Number of samples")+
+  ggtitle("RNAseq Statistics")+
+  geom_label(data=temp, aes(colour=has_RNAseq,label = n), size = 5,vjust=-0.1,position = "stack",color="black",show.legend = FALSE)+
+  theme.common.short.label
+
 ```
 
 *Genotype summary*
 ```{r}
 temp = capstone2.metadata %>% group_by(Brain_Region,has_GENOTYPE_bool) %>% summarise(n=n())
+
 ggplot(temp,aes(as.factor(Brain_Region),n,fill=has_GENOTYPE_bool))+
-  geom_col(position='dodge')+
+  geom_col(col="black")+
   theme_bw()+
-  scale_fill_manual(values = c("darkred","darkgreen"),name="Has Genotype")+
-  ylab("Number of samples")+
-  xlab("")+
+  scale_fill_manual(values = c("white","darkgreen"),name="Has Genotype")+
+  scale_x_discrete(name = "", labels=brainregions)+
+  labs(y = "Number of samples")+
   ggtitle("Genotype Statistics")+
-  geom_label(data=temp, aes(y=n,colour=has_GENOTYPE_bool,label = n), size = 5,position = position_dodge(width = 0.90),vjust=-0.5,color="white")
+  geom_label(data=temp, aes(colour=has_GENOTYPE_bool,label = n), size = 5,position = "stack",vjust=-0.1,color="black",show.legend = FALSE)+
+  theme.common.short.label
 
 ```
 
@@ -141,27 +240,33 @@ ggplot(temp,aes(as.factor(Brain_Region),n,fill=has_GENOTYPE_bool))+
 #Counts Stats
 ```{r}
 capstone2.h3k4me3.counts = fread(getFileLocation(synGet( 'syn11305250' )), header=TRUE, stringsAsFactors=FALSE,sep="\t",data.table = F) 
+capstone2.h3k4me3.peaks  = fread(getFileLocation(synGet( 'syn11305254' )), header=TRUE, stringsAsFactors=FALSE,sep="\t",data.table = F) 
+capstone2.h3k4me3.peaks$widths = capstone2.h3k4me3.peaks$End - capstone2.h3k4me3.peaks$Start
+
 
 rownames(capstone2.h3k4me3.counts)=capstone2.h3k4me3.counts$Geneid
 capstone2.h3k4me3.counts=capstone2.h3k4me3.counts[,-1]
-head(capstone2.h3k4me3.counts)
-D = DGEList(counts = capstone2.h3k4me3.counts) ;
-D = calcNormFactors(D);
-keep <- rowSums(cpm(capstone2.h3k4me3.counts)>1) >= 5;
-D = D[keep,];
-D = calcNormFactors(D)
-R = rpkm(D,gene.length = peaks_width, log = TRUE)
+
 
 #4 samples missing
 counts.reduced = capstone2.h3k4me3.counts[,names(capstone2.h3k4me3.counts) %in% capstone2.metadata$Sample_ID]
 capstone2.metadata.sorted=capstone2.metadata[match(names(counts.reduced),capstone2.metadata$Sample_ID),]
 head(capstone2.metadata.sorted)
+studies = unique(capstone2.metadata.sorted$Study)
 
+epimap.filter = rowSums(cpm(counts.reduced[,colnames(counts.reduced) %in% capstone2.metadata.sorted$Sample_ID[capstone2.metadata.sorted$Study==studies[1]]])>1) >= length(capstone2.metadata.sorted$Individual_ID[capstone2.metadata.sorted$Study==studies[1]])*0.10
 
-#cpm = cpm(capstone2.h3k4me3.counts,log = F)
-#cpm.log = cpm(capstone2.h3k4me3.counts,log=T)
-cpm = cpm(counts.reduced,log = F)
-cpm.log = cpm(counts.reduced,log=T)
+epidiff.filter = rowSums(cpm(counts.reduced[,colnames(counts.reduced) %in% capstone2.metadata.sorted$Sample_ID[capstone2.metadata.sorted$Study==studies[2]]])>1) >= length(capstone2.metadata.sorted$Individual_ID[capstone2.metadata.sorted$Study==studies[2]])*0.10
+
+cnon.filter = rowSums(cpm(counts.reduced[,colnames(counts.reduced) %in% capstone2.metadata.sorted$Sample_ID[capstone2.metadata.sorted$Study==studies[3]]])>1) >= length(capstone2.metadata.sorted$Individual_ID[capstone2.metadata.sorted$Study==studies[3]])*0.10
+
+D = DGEList(counts = counts.reduced) ;
+D = calcNormFactors(D);
+#keep <- rowSums(cpm(counts.reduced)>1) >= 5;
+keep = epimap.filter | epidiff.filter | cnon.filter
+D = D[keep,];
+D = calcNormFactors(D)
+R = rpkm(D,gene.length = capstone2.h3k4me3.peaks$widths[capstone2.h3k4me3.peaks$Peak_name%in%rownames(D$counts)], log = TRUE)
 
 ```
 
@@ -177,49 +282,98 @@ source_url("https://raw.githubusercontent.com/obigriffith/biostar-tutorials/mast
 hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
 
 
-cols <- palette(brewer.pal(8, "Dark2"))[as.fumeric(as.character(capstone2.metadata.sorted$Brain_Region))]
-cols2 <- mycols[as.fumeric(as.character(capstone2.metadata.sorted$Cell_Type))]
+cols <- brainregions.col[as.fumeric(as.character(capstone2.metadata.sorted$Brain_Region))]
+cols2 <- celltype.col[as.fumeric(as.character(capstone2.metadata.sorted$Cell_Type))]
+cols3 <- c("darkred","darkgreen","black")[as.fumeric(as.character(capstone2.metadata.sorted$Study))]
 
 
-colLab=t(cbind(cols,cols2))
-rownames(colLab)=c("brainRegion","cellType")
+colLab=t(cbind(cols,cols2,cols3))
+rownames(colLab)=c("brainRegion","cellType","Study")
 #colnames(colLab)=names(capstone2.h3k4me3.counts)
 colnames(colLab)=names(counts.reduced)
 
-test_cormat <- round(cor(cpm.log,method = "spearman"),2)
+test_cormat <- round(cor(R,method = "spearman"),2)
 test_dist = as.dist((1-test_cormat)/2)
 heatmap.3(test_dist,labCol=FALSE,scale="none",
           trace="none", 
           ColSideColors = t(colLab), KeyValueName="Spearman Correlation",
           col=hmcol,ColSideColorsSize=3)
 
-legend("topleft",
-       legend=c("NeuN+","NeuN-","Homogenate","ACC","DLPFC","CNON"), 
-       fill=c(unique(cols2),unique(cols)), ncol=2)
-
+legend("topright",
+       legend=c("NeuN+","NeuN-","CNON","ACC","DLPFC","ON","EpiMap","EpiDiff","CNON"), 
+       fill=c(unique(cols2),unique(cols),unique(cols3)), ncol=3)
+dev.off()
 ```
 
 PCA
 
 ```{r}
-counts.pca <- prcomp(t(cpm), center = TRUE, scale. = TRUE)
+cols <- brainregions.col[as.fumeric(as.character(capstone2.metadata.sorted$Brain_Region))]
+cols2 <- celltype.col[as.fumeric(as.character(capstone2.metadata.sorted$Cell_Type))]
+cols3 <- c("red","darkgreen","black")[as.fumeric(as.character(capstone2.metadata.sorted$Study))]
+cols4 <- wes_palette(n=3,"GrandBudapest")[as.fumeric(as.character(capstone2.metadata.sorted$Diagnosis))]
 
-#palette(brewer.pal(8, "Dark2"))
-cols <- mycols[as.fumeric(as.character(capstone2.metadata.sorted$Brain_Region))]
-cols2 <- mycols[as.fumeric(as.character(capstone2.metadata.sorted$Cell_Type))]
-cols3 <- mycols[as.fumeric(as.character(capstone2.metadata.sorted$Study))]
-
-plot(counts.pca$x[,1:2], col = cols)
-legend("topright", inset=.05, title="Cell Types",c("ACC","DLPFC","CNON"), fill=unique(cols), horiz=F)
+counts.pca <- prcomp(t(R), center = TRUE, scale. = TRUE)
 
 
-plot(counts.pca$x[,1:2], col = cols2)
-legend("topright", inset=.05, title="Cell Types",c("NeuN+","NeuN-","Homogenate"), fill=unique(cols2), horiz=F)
+#png("Images/PCA_1_vs_2.png",width=1080,height=1080,res=90)
+par(mfrow=c(2,2))
+plot(counts.pca$x[,1:2], col = cols,pch=19,cex=1.5,ann = T,main="PCA 1 Vs. 2")
+legend(x=-900,y=410, inset=.05, c("ACC","DLPFC","CNON"), fill=unique(cols), horiz=F,border = "white",box.col = "white")
 
-plot(counts.pca$x[,1:2], col = cols3)
-legend("topright", inset=.05, title="Cell Types",unique(capstone2.metadata.sorted$Study), fill=unique(cols2), horiz=F)
+plot(counts.pca$x[,1:2], col = cols2,pch=19,cex=1.5,ann = T,main="PCA 1 Vs. 2")
+legend(x=-900,y=410, inset=.05, c("NeuN+","NeuN-","ON"), fill=unique(cols2), horiz=F,border = "white",box.col = "white")
+
+plot(counts.pca$x[,1:2], col = cols3,pch=19,cex=1.5,ann = T,main="PCA 1 Vs. 2")
+legend(x=-900,y=410, inset=.05, unique(capstone2.metadata.sorted$Study), fill=unique(cols3), horiz=F,border = "white",box.col = "white")
+
+plot(counts.pca$x[,1:2], col = cols4,pch=19,cex=1.5,ann = T,main="PCA 1 Vs. 2")
+legend(x=-900,y=410, c("Control","SCZ","Control:depression"), fill=unique(cols4), horiz=F,border = "white",box.col = "white")
+
+#dev.off()
+```
+
+PCA 2 Vs 3
+
+```{r}
+
+#png("Images/PCA_2_vs_3.png",width=1080,height=1080,res=90)
+par(mfrow=c(2,2))
+
+plot(counts.pca$x[,2:3], col = cols,pch=19,cex=1.5,ann = T,main="PCA 2 Vs. 3")
+legend("top", inset=.05, c("ACC","DLPFC","CNON"), fill=unique(cols), horiz=F,border = "white",box.col = "white",ncol= 3)
+
+plot(counts.pca$x[,2:3], col = cols2,pch=19,cex=1.5,ann = T,main="PCA 2 Vs. 3")
+legend("top", inset=.05, c("NeuN+","NeuN-","ON"), fill=unique(cols2), horiz=F,border = "white",box.col = "white",ncol= 3)
+
+plot(counts.pca$x[,2:3], col = cols3,pch=19,cex=1.5,ann = T,main="PCA 2 Vs. 3")
+legend("top", inset=.05, unique(capstone2.metadata.sorted$Study), fill=unique(cols3), horiz=F,border = "white",box.col = "white",ncol= 3)
+
+plot(counts.pca$x[,2:3], col = cols4,pch=19,cex=1.5,ann = T,main="PCA 2 Vs. 3")
+legend("top",inset=.05, c("Control","SCZ","Control:depression"), fill=unique(cols4), horiz=F,border = "white",box.col = "white",ncol= 3,text.width = 100)
+
+#dev.off()
 
 ```
 
 
+MDS
+```{r}
+fit <- cmdscale(test_dist, eig = TRUE, k = 2)
 
+#png("Images/MDS.png",width=1080,height=1080,res=90)
+par(mfrow=c(2,2))
+plot(fit$points[,1:2], col = cols,pch=19,cex=1.5,ann = T,main="MDS")
+legend("bottomleft", inset=.05, c("ACC","DLPFC","CNON"), fill=unique(cols), horiz=F,border = "white",box.col = "white")
+
+plot(fit$points[,1:2], col = cols2,pch=19,cex=1.5,ann = T,main="MDS")
+legend("bottomleft", inset=.05, c("NeuN+","NeuN-","ON"), fill=unique(cols2), horiz=F,border = "white",box.col = "white")
+
+plot(fit$points[,1:2], col = cols3,pch=19,cex=1.5,ann = T,main="MDS")
+legend("bottomleft", inset=.05, unique(capstone2.metadata.sorted$Study), fill=unique(cols3), horiz=F,border = "white",box.col = "white")
+
+plot(fit$points[,1:2], col = cols4,pch=19,cex=1.5,ann = T,main="MDS")
+legend("bottomleft",inset = .05, c("Control","SCZ","Control:depression"), fill=unique(cols4), horiz=F,border = "white",box.col = "white")
+#dev.off()
+
+```
