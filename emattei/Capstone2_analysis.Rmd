@@ -32,8 +32,10 @@ CNON="#FF7903"
 ACC="#009E73"
 PFC="#CC79A7"
 ON="#AEAFAE"
-brainregions.col=c(ACC,PFC,ON)
-celltype.col=c(Neurons,NonNeurons,CNON)
+#brainregions.col=c(ACC,PFC,ON)
+#celltype.col=c(Neurons,NonNeurons,CNON)
+celltype.col = c("NeuN+"=Neurons,"NeuN-"=NonNeurons,"CNON"=CNON)
+brainregions.col=c("ACC"= ACC,"DLPFF" = PFC,"ON" = ON)
 
 brainregions=c("Anterior\nCingular\nCortex", "Cerebellum", "Dorsolateral\nPre-Frontal\nCortex","Olfactory\nNeuroepithelium","Pre-Frontal\nCortex","Temporal\nCortex")
 marks.col=c("#00B0F0","#FFCD00","#FF0000")
@@ -243,6 +245,10 @@ capstone2.h3k4me3.counts = fread(getFileLocation(synGet( 'syn11305250' )), heade
 capstone2.h3k4me3.peaks  = fread(getFileLocation(synGet( 'syn11305254' )), header=TRUE, stringsAsFactors=FALSE,sep="\t",data.table = F) 
 capstone2.h3k4me3.peaks$widths = capstone2.h3k4me3.peaks$End - capstone2.h3k4me3.peaks$Start
 
+peak.stats= fread("~/Dropbox/psychENCODE-Eu/capstone2/H3K4me3/stats/peaks_stats_H3K4me3",h=F,stringsAsFactors = F)
+dim(peak.stats)
+head(peak.stats)
+boxplot(peak.stats$V3)
 
 rownames(capstone2.h3k4me3.counts)=capstone2.h3k4me3.counts$Geneid
 capstone2.h3k4me3.counts=capstone2.h3k4me3.counts[,-1]
@@ -278,33 +284,53 @@ library(RColorBrewer)
 library(rafalib)
 
 #Load latest version of heatmap.3 function
-source_url("https://raw.githubusercontent.com/obigriffith/biostar-tutorials/master/Heatmaps/heatmap.3.R")
 hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
-
 
 cols <- brainregions.col[as.fumeric(as.character(capstone2.metadata.sorted$Brain_Region))]
 cols2 <- celltype.col[as.fumeric(as.character(capstone2.metadata.sorted$Cell_Type))]
 cols3 <- c("darkred","darkgreen","black")[as.fumeric(as.character(capstone2.metadata.sorted$Study))]
-
+cols2
 
 colLab=t(cbind(cols,cols2,cols3))
 rownames(colLab)=c("brainRegion","cellType","Study")
 #colnames(colLab)=names(capstone2.h3k4me3.counts)
 colnames(colLab)=names(counts.reduced)
-
+colLab
 test_cormat <- round(cor(R,method = "spearman"),2)
 test_dist = as.dist((1-test_cormat)/2)
-heatmap.3(test_dist,labCol=FALSE,scale="none",
-          trace="none", 
-          ColSideColors = t(colLab), KeyValueName="Spearman Correlation",
-          col=hmcol,ColSideColorsSize=3)
 
-legend("topright",
-       legend=c("NeuN+","NeuN-","CNON","ACC","DLPFC","ON","EpiMap","EpiDiff","CNON"), 
-       fill=c(unique(cols2),unique(cols),unique(cols3)), ncol=3)
-dev.off()
+test_col <- data.frame(row.names = colnames(R), 
+                      Cell_Type = factor(capstone2.metadata.sorted$Cell_Type,levels=unique(capstone2.metadata.sorted$Cell_Type)))
+test_colors <- list(Cell_Type = celltype.col[unique(test_col$Cell_Type)])
+names(test_colors$Cell_Type) <- unique(test_col$Cell_Type)
+
+
+groups = as.data.frame(cutree(hc,h=0.36))
+names(groups)="clusters"
+
+test_col$clusters=groups$clusters
+
+pheatmap(
+  mat               = test_dist,
+  color             = hmcol,
+  border_color      = NA,
+  show_colnames     = FALSE,
+  show_rownames     = FALSE,
+  annotation_col    = test_col,
+  annotation_colors = test_colors,
+  drop_levels       = TRUE,
+  fontsize          = 14,
+  main              = "TEST"
+)
+
+hc = hclust(test_dist)
+hc$order
+
+hc.order = hc$labels[hc$order]
+hc.df = data.frame(row.names = hc.order, len=peak.stats[match(hc.order,peak.stats$V2),V3])
+hc.df$label=capstone2.metadata.sorted[match(hc.order,capstone2.metadata.sorted$Sample_ID),]$Cell_Type
+hc.df
 ```
-
 PCA
 
 ```{r}
